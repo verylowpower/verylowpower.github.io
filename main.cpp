@@ -14,7 +14,7 @@ bool parseMac(const char* str, uint8_t* mac) {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   delay(1000);
 
   ESP.restart();

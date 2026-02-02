@@ -79,7 +79,7 @@
 
       connect.onclick = async () => {
         port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
+        await port.open({ baudRate: 9600 });
 
         const decoder = new TextDecoderStream();
         port.readable.pipeTo(decoder.writable);
