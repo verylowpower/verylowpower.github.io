@@ -45,6 +45,7 @@
     <input id="wifiPassword" placeholder="WiFi Password" />
     <input id="macAddress" placeholder="Target MAC (AA:BB:CC:DD:EE:FF)" />
     <input id="botToken" placeholder="Bot Token" />
+    <input id="userId" placeholder="User ID (Discord / Telegram)" />
     <input id="pcIP" value="192.168.1.150" />
     <input id="psIP" value="192.168.1.100" />
 
@@ -72,6 +73,7 @@
           wifiPassword: wifiPassword.value,
           macAddress: macAddress.value,
           botToken: botToken.value,
+          userId: Number(userId.value),
           pcTargetIP: pcIP.value,
           psTargetIP: psIP.value,
         };
