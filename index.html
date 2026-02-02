@@ -2,88 +2,107 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <title>ESP Provisioning</title>
-
-    <script
-      type="module"
-      src="https://unpkg.com/esp-web-tools@9/dist/web/install-button.js"></script>
-
+    <title>ESP Config Tool</title>
     <style>
       body {
-        font-family: system-ui;
-        max-width: 500px;
-        padding: 30px;
+        margin: 0;
+        font-family: monospace;
+        display: flex;
+        height: 100vh;
       }
-      input,
-      button {
-        width: 100%;
-        padding: 8px;
-        margin: 6px 0;
+
+      #form {
+        flex: 1;
+        padding: 20px;
       }
-      pre {
+
+      #log {
+        width: 40%;
         background: #111;
         color: #0f0;
         padding: 10px;
-        height: 140px;
-        overflow: auto;
+        overflow-y: auto;
+      }
+
+      input,
+      textarea,
+      button {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 8px;
       }
     </style>
   </head>
 
   <body>
-    <h2>ESP Flash + Config</h2>
+    <div id="form">
+      <h2>ESP Configuration</h2>
 
-    <h3>1️⃣ Flash firmware</h3>
-    <esp-web-install-button manifest="manifest.json">
-      <button>Flash Firmware</button>
-    </esp-web-install-button>
+      <input id="ssid" placeholder="WiFi SSID" />
+      <input id="pass" placeholder="WiFi Password" />
+      <input id="mac" placeholder="Target MAC (AA:BB:CC:DD:EE:FF)" />
+      <input id="token" placeholder="Bot Token" />
 
-    <hr />
+      <textarea
+        id="owners"
+        rows="3"
+        placeholder="Bot Owner IDs (mỗi dòng 1 ID)"></textarea>
 
-    <h3>2️⃣ Config</h3>
-    <input id="wifiSSID" placeholder="WiFi SSID" />
-    <input id="wifiPassword" placeholder="WiFi Password" />
-    <input id="macAddress" placeholder="Target MAC (AA:BB:CC:DD:EE:FF)" />
-    <input id="botToken" placeholder="Bot Token" />
-    <input id="userId" placeholder="User ID (Discord / Telegram)" />
-    <input id="pcIP" value="192.168.1.150" />
-    <input id="psIP" value="192.168.1.100" />
+      <input id="pcip" value="192.168.1.150" />
+      <input id="psip" value="192.168.1.100" />
 
-    <button id="connect">Connect ESP</button>
-    <button id="send" disabled>Send Config</button>
+      <button onclick="connect()">Connect</button>
+      <button onclick="send()">Send Config</button>
+    </div>
 
-    <pre id="log"></pre>
+    <div id="log"></div>
 
     <script>
       let port, writer;
-      const logBox = document.getElementById('log');
-      const log = (t) => (logBox.textContent += t + '\n');
 
-      connect.onclick = async () => {
+      function log(msg) {
+        const box = document.getElementById('log');
+        box.innerHTML += msg + '<br>';
+        box.scrollTop = box.scrollHeight;
+      }
+
+      async function connect() {
         port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
-        writer = port.writable.getWriter();
-        send.disabled = false;
-        log('✔ ESP connected');
-      };
 
-      send.onclick = async () => {
-        const config = {
-          wifiSSID: wifiSSID.value,
-          wifiPassword: wifiPassword.value,
-          macAddress: macAddress.value,
-          botToken: botToken.value,
-          userId: Number(userId.value),
-          pcTargetIP: pcIP.value,
-          psTargetIP: psIP.value,
+        const decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable);
+        const reader = decoder.readable.getReader();
+
+        writer = port.writable.getWriter();
+        log('✔ Connected');
+
+        while (true) {
+          const { value } = await reader.read();
+          if (value) log('ESP → ' + value);
+        }
+      }
+
+      async function send() {
+        const owners = document
+          .getElementById('owners')
+          .value.split('\n')
+          .map((v) => v.trim())
+          .filter((v) => v.length);
+
+        const cfg = {
+          wifiSSID: document.getElementById('ssid').value,
+          wifiPassword: document.getElementById('pass').value,
+          macAddress: document.getElementById('mac').value,
+          botToken: document.getElementById('token').value,
+          botOwnerIds: owners,
+          PCTargetIP: document.getElementById('pcip').value,
+          PSTargetIP: document.getElementById('psip').value,
         };
 
-        await writer.write(
-          new TextEncoder().encode(JSON.stringify(config) + '\n'),
-        );
-
-        log('✔ Config sent');
-      };
+        await writer.write(JSON.stringify(cfg) + '\n');
+        log('→ CONFIG SENT');
+      }
     </script>
   </body>
 </html>

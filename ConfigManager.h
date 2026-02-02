@@ -1,24 +1,22 @@
 #pragma once
-#include <EEPROM.h>
-#include "Config.h"
+#include <Arduino.h>
 
-#define EEPROM_SIZE sizeof(Config)
-#define EEPROM_ADDR 0
+#define MAX_OWNER 5
+
+struct Config {
+  char wifiSSID[32];
+  char wifiPassword[64];
+  char macAddress[18];
+  char botToken[128];
+
+  char botOwnerIds[MAX_OWNER][24];
+
+  char pcTargetIP[16];
+  char psTargetIP[16];
+};
 
 class ConfigManager {
 public:
-  void begin() {
-    EEPROM.begin(EEPROM_SIZE);
-  }
-
-  void save(const Config& cfg) {
-    EEPROM.put(EEPROM_ADDR, cfg);
-    EEPROM.commit();
-  }
-
-  Config load() {
-    Config cfg;
-    EEPROM.get(EEPROM_ADDR, cfg);
-    return cfg;
-  }
+  void begin();
+  void save(const Config& cfg);
 };
