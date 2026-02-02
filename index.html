@@ -2,107 +2,174 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <title>ESP Config Tool</title>
+    <title>ESP Provisioning</title>
+
+    <script
+      type="module"
+      src="https://unpkg.com/esp-web-tools@9/dist/web/install-button.js"></script>
+
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
+        height: 100vh;
         font-family: monospace;
         display: flex;
-        height: 100vh;
       }
 
-      #form {
+      /* ===== LEFT PANEL ===== */
+      #left {
         flex: 1;
-        padding: 20px;
+        padding: 24px;
+        overflow-y: auto;
       }
 
-      #log {
-        width: 40%;
-        background: #111;
-        color: #0f0;
-        padding: 10px;
-        overflow-y: auto;
+      h2,
+      h3 {
+        margin-top: 0;
       }
 
       input,
       textarea,
       button {
         width: 100%;
-        margin-bottom: 10px;
         padding: 8px;
+        margin: 6px 0;
+        font-family: monospace;
+      }
+
+      textarea {
+        resize: vertical;
+      }
+
+      /* ===== RIGHT LOG PANEL ===== */
+      #right {
+        width: 40%;
+        background: #0b0b0b;
+        color: #00ff66;
+        padding: 12px;
+        border-left: 2px solid #222;
+        overflow-y: auto;
+        white-space: pre-wrap;
+      }
+
+      #right h3 {
+        margin-top: 0;
+        color: #7dffb3;
+      }
+
+      .ok {
+        color: #00ff66;
+      }
+
+      .err {
+        color: #ff5555;
       }
     </style>
   </head>
 
   <body>
-    <div id="form">
-      <h2>ESP Configuration</h2>
+    <!-- LEFT -->
+    <div id="left">
+      <h2>ESP Flash + Config</h2>
 
-      <input id="ssid" placeholder="WiFi SSID" />
-      <input id="pass" placeholder="WiFi Password" />
-      <input id="mac" placeholder="Target MAC (AA:BB:CC:DD:EE:FF)" />
-      <input id="token" placeholder="Bot Token" />
+      <h3>1️⃣ Flash firmware</h3>
+      <esp-web-install-button manifest="manifest.json">
+        <button>Flash Firmware</button>
+      </esp-web-install-button>
+
+      <hr />
+
+      <h3>2️⃣ Config</h3>
+
+      <input id="wifiSSID" placeholder="WiFi SSID" />
+      <input id="wifiPassword" placeholder="WiFi Password" />
+
+      <input id="macAddress" placeholder="Target MAC (AA:BB:CC:DD:EE:FF)" />
+
+      <input id="botToken" placeholder="Bot Token" />
 
       <textarea
-        id="owners"
+        id="userIds"
         rows="3"
-        placeholder="Bot Owner IDs (mỗi dòng 1 ID)"></textarea>
+        placeholder="User IDs (mỗi dòng 1 ID)"></textarea>
 
-      <input id="pcip" value="192.168.1.150" />
-      <input id="psip" value="192.168.1.100" />
+      <input id="pcIP" value="192.168.1.150" />
+      <input id="psIP" value="192.168.1.100" />
 
-      <button onclick="connect()">Connect</button>
-      <button onclick="send()">Send Config</button>
+      <button id="connect">🔌 Connect ESP</button>
+      <button id="send" disabled>📤 Send Config</button>
     </div>
 
-    <div id="log"></div>
+    <!-- RIGHT -->
+    <div id="right">
+      <h3>📟 Serial Log</h3>
+      <div id="log"></div>
+    </div>
 
     <script>
       let port, writer;
 
-      function log(msg) {
-        const box = document.getElementById('log');
-        box.innerHTML += msg + '<br>';
-        box.scrollTop = box.scrollHeight;
+      const logBox = document.getElementById('log');
+
+      function log(msg, type = 'ok') {
+        const line = document.createElement('div');
+        line.textContent = msg;
+        line.className = type;
+        logBox.appendChild(line);
+        document.getElementById('right').scrollTop =
+          document.getElementById('right').scrollHeight;
       }
 
-      async function connect() {
-        port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
+      connect.onclick = async () => {
+        try {
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
 
-        const decoder = new TextDecoderStream();
-        port.readable.pipeTo(decoder.writable);
-        const reader = decoder.readable.getReader();
+          const decoder = new TextDecoderStream();
+          port.readable.pipeTo(decoder.writable);
+          const reader = decoder.readable.getReader();
 
-        writer = port.writable.getWriter();
-        log('✔ Connected');
+          writer = port.writable.getWriter();
+          send.disabled = false;
 
-        while (true) {
-          const { value } = await reader.read();
-          if (value) log('ESP → ' + value);
+          log('✔ ESP connected');
+
+          // đọc log từ ESP
+          while (true) {
+            const { value } = await reader.read();
+            if (value) log('ESP → ' + value.trim());
+          }
+        } catch (e) {
+          log('ERROR: ' + e.message, 'err');
         }
-      }
+      };
 
-      async function send() {
-        const owners = document
-          .getElementById('owners')
-          .value.split('\n')
+      send.onclick = async () => {
+        const owners = userIds.value
+          .split('\n')
           .map((v) => v.trim())
           .filter((v) => v.length);
 
-        const cfg = {
-          wifiSSID: document.getElementById('ssid').value,
-          wifiPassword: document.getElementById('pass').value,
-          macAddress: document.getElementById('mac').value,
-          botToken: document.getElementById('token').value,
+        const config = {
+          wifiSSID: wifiSSID.value,
+          wifiPassword: wifiPassword.value,
+          macAddress: macAddress.value,
+          botToken: botToken.value,
           botOwnerIds: owners,
-          PCTargetIP: document.getElementById('pcip').value,
-          PSTargetIP: document.getElementById('psip').value,
+          PCTargetIP: pcIP.value,
+          PSTargetIP: psIP.value,
         };
 
-        await writer.write(JSON.stringify(cfg) + '\n');
+        await writer.write(
+          new TextEncoder().encode(JSON.stringify(config) + '\n'),
+        );
+
         log('→ CONFIG SENT');
-      }
+      };
     </script>
   </body>
 </html>
