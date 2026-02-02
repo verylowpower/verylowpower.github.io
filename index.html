@@ -9,29 +9,24 @@
       src="https://unpkg.com/esp-web-tools@9/dist/web/install-button.js"></script>
 
     <style>
-      * {
-        box-sizing: border-box;
-      }
-
       body {
         margin: 0;
         height: 100vh;
-        font-family: monospace;
         display: flex;
+        font-family: monospace;
       }
-
-      /* ===== LEFT PANEL ===== */
       #left {
         flex: 1;
         padding: 24px;
+      }
+      #right {
+        width: 40%;
+        background: #0b0b0b;
+        color: #00ff66;
+        padding: 12px;
         overflow-y: auto;
+        border-left: 2px solid #222;
       }
-
-      h2,
-      h3 {
-        margin-top: 0;
-      }
-
       input,
       textarea,
       button {
@@ -40,73 +35,35 @@
         margin: 6px 0;
         font-family: monospace;
       }
-
-      textarea {
-        resize: vertical;
-      }
-
-      /* ===== RIGHT LOG PANEL ===== */
-      #right {
-        width: 40%;
-        background: #0b0b0b;
-        color: #00ff66;
-        padding: 12px;
-        border-left: 2px solid #222;
-        overflow-y: auto;
-        white-space: pre-wrap;
-      }
-
-      #right h3 {
-        margin-top: 0;
-        color: #7dffb3;
-      }
-
-      .ok {
-        color: #00ff66;
-      }
-
-      .err {
-        color: #ff5555;
-      }
     </style>
   </head>
 
   <body>
-    <!-- LEFT -->
     <div id="left">
-      <h2>ESP Flash + Config</h2>
-
-      <h3>1️⃣ Flash firmware</h3>
+      <h3>Flash firmware</h3>
       <esp-web-install-button manifest="manifest.json">
-        <button>Flash Firmware</button>
+        <button>Flash</button>
       </esp-web-install-button>
 
       <hr />
 
-      <h3>2️⃣ Config</h3>
-
       <input id="wifiSSID" placeholder="WiFi SSID" />
       <input id="wifiPassword" placeholder="WiFi Password" />
-
-      <input id="macAddress" placeholder="Target MAC (AA:BB:CC:DD:EE:FF)" />
-
+      <input id="macAddress" placeholder="MAC AA:BB:CC:DD:EE:FF" />
       <input id="botToken" placeholder="Bot Token" />
-
       <textarea
         id="userIds"
         rows="3"
         placeholder="User IDs (mỗi dòng 1 ID)"></textarea>
-
       <input id="pcIP" value="192.168.1.150" />
       <input id="psIP" value="192.168.1.100" />
 
-      <button id="connect">🔌 Connect ESP</button>
-      <button id="send" disabled>📤 Send Config</button>
+      <button id="connect">Connect ESP</button>
+      <button id="send" disabled>Send Config</button>
     </div>
 
-    <!-- RIGHT -->
-    <div id="right">
-      <h3>📟 Serial Log</h3>
+    <div id="right" id="logPanel">
+      <b>SERIAL LOG</b><br /><br />
       <div id="log"></div>
     </div>
 
@@ -114,52 +71,38 @@
       let port, writer;
 
       const logBox = document.getElementById('log');
-
-      function log(msg, type = 'ok') {
-        const line = document.createElement('div');
-        line.textContent = msg;
-        line.className = type;
-        logBox.appendChild(line);
+      function log(msg) {
+        logBox.innerHTML += msg + '<br>';
         document.getElementById('right').scrollTop =
           document.getElementById('right').scrollHeight;
       }
 
       connect.onclick = async () => {
-        try {
-          port = await navigator.serial.requestPort();
-          await port.open({ baudRate: 115200 });
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
 
-          const decoder = new TextDecoderStream();
-          port.readable.pipeTo(decoder.writable);
-          const reader = decoder.readable.getReader();
+        const decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable);
+        const reader = decoder.readable.getReader();
 
-          writer = port.writable.getWriter();
-          send.disabled = false;
+        writer = port.writable.getWriter();
+        send.disabled = false;
 
-          log('✔ ESP connected');
+        log('✔ CONNECTED');
 
-          // đọc log từ ESP
-          while (true) {
-            const { value } = await reader.read();
-            if (value) log('ESP → ' + value.trim());
-          }
-        } catch (e) {
-          log('ERROR: ' + e.message, 'err');
+        while (true) {
+          const { value } = await reader.read();
+          if (value) log(value.replace(/\n/g, '<br>'));
         }
       };
 
       send.onclick = async () => {
-        const owners = userIds.value
-          .split('\n')
-          .map((v) => v.trim())
-          .filter((v) => v.length);
-
         const config = {
           wifiSSID: wifiSSID.value,
           wifiPassword: wifiPassword.value,
           macAddress: macAddress.value,
           botToken: botToken.value,
-          botOwnerIds: owners,
+          botOwnerIds: userIds.value.split('\n'),
           PCTargetIP: pcIP.value,
           PSTargetIP: psIP.value,
         };
