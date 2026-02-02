@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ESP Provisioning</title>
+
+    <script
+      type="module"
+      src="https://unpkg.com/esp-web-tools@9/dist/web/install-button.js"></script>
+
+    <style>
+      body {
+        font-family: system-ui;
+        max-width: 500px;
+        padding: 30px;
+      }
+      input,
+      button {
+        width: 100%;
+        padding: 8px;
+        margin: 6px 0;
+      }
+      pre {
+        background: #111;
+        color: #0f0;
+        padding: 10px;
+        height: 140px;
+        overflow: auto;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2>ESP Flash + Config</h2>
+
+    <h3>1️⃣ Flash firmware</h3>
+    <esp-web-install-button manifest="manifest.json">
+      <button>Flash Firmware</button>
+    </esp-web-install-button>
+
+    <hr />
+
+    <h3>2️⃣ Config</h3>
+    <input id="wifiSSID" placeholder="WiFi SSID" />
+    <input id="wifiPassword" placeholder="WiFi Password" />
+    <input id="botToken" placeholder="Bot Token" />
+    <input id="pcIP" value="192.168.1.150" />
+    <input id="psIP" value="192.168.1.100" />
+
+    <button id="connect">Connect ESP</button>
+    <button id="send" disabled>Send Config</button>
+
+    <pre id="log"></pre>
+
+    <script>
+      let port, writer;
+      const log = (t) => (logBox.textContent += t + '\n');
+      const logBox = document.getElementById('log');
+
+      connect.onclick = async () => {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        writer = port.writable.getWriter();
+        send.disabled = false;
+        log('✔ ESP connected');
+      };
+
+      send.onclick = async () => {
+        const config = {
+          wifiSSID: wifiSSID.value,
+          wifiPassword: wifiPassword.value,
+          botToken: botToken.value,
+          pcTargetIP: pcIP.value,
+          psTargetIP: psIP.value,
+        };
+
+        await writer.write(
+          new TextEncoder().encode(JSON.stringify(config) + '\n'),
+        );
+
+        log('✔ Config sent');
+      };
+    </script>
+  </body>
+</html>
